@@ -20,7 +20,7 @@ def vector_to_file(vector, file_name, action):
 
 
 DEVICES = 'Devices.txt'
-PORTS = 'PORTS.txt'
+PORTS = 'Ports.txt'
 LOADS = 'Loads.txt'
 WIRES = 'Wires.txt'
 EMBEDDINGINPUT = 'EmbeddingInput.txt'
@@ -111,7 +111,7 @@ class ONOSEnv():
         print("onde embedding successfully")
         return
 
-    # need myself onos apps traffic tracker
+    # need myself onos apps traffic-tracker
     def update_links(self):
         # init loads and wires
         self.env_loads = np.full([self.active_nodes] * 2, -1.0, dtype=float)
@@ -287,3 +287,5 @@ class ONOSEnv():
 
         print(bps_to_human_string(load))
         return
+
+
