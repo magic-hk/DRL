@@ -18,7 +18,10 @@ import tensorflow as tf
 import numpy as np
 import gym
 import time
-
+from Environment import ONOSEnv
+from utils import setup_exp, setup_run
+from config import *
+import time
 
 #####################  hyper parameters  ####################
 
@@ -114,100 +117,54 @@ class DDPG(object):
             net = tf.nn.relu(tf.matmul(s, w1_s) + tf.matmul(a, w1_a) + b1)
             return tf.layers.dense(net, 1, trainable=trainable)  # Q(s,a)
 
-	# routeArgs相当于一个初始状态，currentPosition等于源交换机id
-    def getPath(routeArgs，network，networkState，networkEmbedding,epsilon=0.1): #epsilon : control exploration
-    '''
-        networkState: 为网络状态
-    '''
-        path=[] #存储最后的路径列表
-		
-        s = #s为一个状态，也即将routeArgs中的 currentPosition变为节点embedding的表示，同时需要考虑 networkState
-
-		# 原始编号
-        originExpress=routeArgs[-1]
-		# 这里面放的都是原始的编号
-        path.append(originExpress)  #添加第一个节点
 
 
-        for j in range(MAX_EP_STEPS):  #最多产生 MAX_EP_STEPS 个节点的路径
 
-            currentPosition=originExpress #
-            neighborNode=[] # currentPosition 的邻居节点，这个列表是节点的编号
-            if(neighborNode包含目的节点)
-                path.append(目的节点编号)
-                return path
-
-            if np.random.rand() > epsilon: # add randomness to action selection for exploration
-                # choose best action
-                action = ddpg.choose_action(s)
-
-                #比较点action和 neighborNode节点的距离，以及neighborNode和目的节点的距离，需要折中，返回一个节点
-                originExpress=compareNode(action,neighborNode) #compareNode函数返回具体的节点编号
-
-            else:
-                # choose random action
-                originExpress = random.sample(neighborNode，1) # 从currentPosition的邻居节点 随机选择一个
-            # 1：加入的path不能有环路，这个需要验证，然后再加入path列表
-            # 2：如果即将加入的originExpress的所有邻居，已经都在path中，则需要在path中删除后三个，重新设置 originExpress
-            path.append(originExpress)
-			s = [前面的东西不变,networkEmbeddings[orginExpress]]
-
+###############################  env  setup ####################################
+setup_exp()
+folder = setup_run()
+env = ONOSEnv(folder)
 ###############################  training  ####################################
+s_dim = len(env.initial_route_args) -1 + REPESENTATTION_SIZE
+a_dim = REPESENTATTION_SIZE
+a_bound = 1
 
-
-
-
-
-
-t1 = time.time()
-
-
-s_dim = 41
-a_dim = 30
-a_bound=1
-
-
-
-ddpg = DDPG(a_dim, s_dim, a_bound)
+# ddpg = DDPG(a_dim, s_dim, a_bound)
 # ddpg.train(routeTuple) # 路径元祖，是一个list：【（vector1，vector2）（vector1，vector2）】，vector是Embedding之后的表示
+#
+#
+#
+# t1 = time.time()
+# for i in range(MAX_EPISODES):
+#     s = env.reset()  #环境初始化
+#     ep_reward = 0
+#     for j in range(MAX_EP_STEPS):
+#
+#         #
+#         flag，a = ddpg.getpath(routeArgs，network，networkEmbedding)
+#
+#         if flag==0： # a为具体的网络表示数值
+#
+#             #比较点a和 neighborNode节点的距离，以及neighborNode和目的节点的距离，需要折中，返回一个节点
+#             originExpress=compareNode(a,neighborNode) #compareNode函数返回具体的节点编号
+#         else：
+#             originExpress=a
+#             a=getEmbedding(a) #得到节点a的网络表示
+#
+#         s_, r = env.step(originExpress) #经过节点a会返回的吞吐量
+#         #在环境中执行动作，获取吞吐量信息，s_是执行这个动作之后，网络的状态，可以用流量矩阵，压缩成一个多维数组
+#
+#         ddpg.store_transition(s, a, r, s_)
+#
+#         if ddpg.pointer > MEMORY_CAPACITY:
+#             # var *= .9995    # decay the action randomness
+#             ddpg.learn()
+#
+#         s = s_
+#         ep_reward += r
+#         if j == MAX_EP_STEPS-1:
+#             print('Episode:', i, ' Reward: %i' % int(ep_reward), )
+#             # if ep_reward > -300:RENDER = True
+#             break
 
-
-t1 = time.time()
-
-for i in range(MAX_EPISODES):
-	# 这里的s表示的是网络状态，当前网络中已用流量(带宽)矩阵
-    s = env.reset()  #环境初始化
-    ep_reward = 0
-    for j in range(MAX_EP_STEPS):
-
-        path=ddgp.getpath(routeArgs，network，s，networkEmbedding)
-        # routeArgs is a list：【srcip0，srcip1，srcip2，srcip3，desip0，desip1，desip2，desip3，sport，dport，protocol，currentPosition】
-        #currentPosition 是还没有embedding的节点编号
-        #network 是一个网络
-        #networkEmbedding 是一个网络Embedding之后的表示
-        #path 返回值，也是一个list，是一个节点的列表
-
-
-        #===选择完了动作之后在环境中执行动作===
-
-		# s_是网络状态，流量矩阵，r是流的吞吐量
-        s_, r = env.step(path)  #在环境中执行动作，获取吞吐量信息，s_是执行这个动作之后，网络的状态，可以用流量矩阵，压缩成一个多维数组
-
-
-		# 将获取到的r写入文件或者是图像化显示
-
-
-        ddpg.store_transition(s, path, r, s_)  #存储每一步所选择的动作，也就是路径中点的表示
-
-        if ddpg.pointer > MEMORY_CAPACITY:
-            # var *= .9995    # decay the action randomness
-            ddpg.learn()
-
-        s = s_
-        ep_reward += r
-        if j == MAX_EP_STEPS-1:
-            print('Episode:', i, ' Reward: %i' % int(ep_reward), )
-            # if ep_reward > -300:RENDER = True
-            break
-
-print('Running time: ', time.time() - t1)
+# print('Running time: ', time.time() - t1)
