@@ -56,11 +56,10 @@ def bps_to_human_string(value, to_byte_per_second=False):
         suffix = 'bps'
 
     for unit in ['', 'K', 'M', 'G']:
-        if abs(value) < 1000.0:
+        if abs(value) < 1024.0:
             return '%3.1f %s%s' % (value, unit, suffix)
-        value /= 1000.0
+        value /= 1024.0
     return '%.1f %s%s' % (value, 'T', suffix)
-
 
 def scale(array):
     mean = array.mean()
