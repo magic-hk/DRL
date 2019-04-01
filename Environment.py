@@ -40,18 +40,32 @@ class ONOSEnv():
         self.env_wires = []
         self.hosts = {}
         self.tracked_intent = {}
+        self.initial_route_args = []
         self.set_up()
 
     def set_up(self):
         self.update_device()
+        if len(self.devices) == 0:
+            print("Set up devices Error!")
+            return
+
         self.update_links()
+        if len(self.env_loads) == 0:
+            print("Set up links Error!")
+            return
+
         self.update_host()
+        if len(self.hosts) == 0:
+            print("Set up hosts Error!")
+            return
+
         self.node_embedding()
+
         self.chose_intent()
-        if len(self.devices) == 0 \
-                or len(self.env_loads) == 0 \
-                or len(self.tracked_intent.keys()) == 0:
-            print("Set Up Error!")
+        if len(self.tracked_intent.keys()) == 0:
+            print("Set up intent Error!")
+            return
+        self.set_up_route_args()
 
     def node_embedding(self):
         self.node_embeddinged = np.full([self.active_nodes, REPESENTATTION_SIZE], 0.0, dtype=float)
@@ -110,6 +124,20 @@ class ONOSEnv():
                         self.node_embeddinged[index] = features
         print("onde embedding successfully")
         return
+
+    def update_network_load(self):
+        reply = json_get_req('http://%s:%d/onos/v1/tm/tm/getLinksLoad' % (ONOS_IP, ONOS_PORT))
+        if 'links' not in reply:
+            print('Update netowrk load Failed : can not find links')
+            return
+        for link in reply['links']:
+            src = link['src']['device']
+            src_index = self.deviceId_to_arrayIndex[src]
+            dst = link['dst']['device']
+            dst_index = self.deviceId_to_arrayIndex[dst]
+            load = link['load']
+            self.env_loads[src_index][dst_index] = load
+        print("network load update successfully")
 
     # need myself onos apps traffic-tracker
     def update_links(self):
@@ -243,7 +271,7 @@ class ONOSEnv():
 
     # radom chose one location of locations as src_location and dst_location
     # location= {elementId,port} elementId==host connect deviceId,
-    # embeding info = node_embeddinged[location['elementId']]
+    # embeding info = node_embeddinged[deviceId_to_arrayIndex[location['elementId']]]
     def update_src_dst_location(self):
         src_index = random.randint(0, len(self.tracked_intent['src_locations']) - 1)
         dst_index = random.randint(0, len(self.tracked_intent['dst_locations']) - 1)
@@ -273,7 +301,7 @@ class ONOSEnv():
                 self.tracked_intent[self_key] = attribute[value_key]
         return
 
-    #
+    # update intent load
     def update_intent_load(self):
         req_str = 'http://%s:%d/onos/v1/eimr/eimr/intentLoad/%s/%s' \
                    % (ONOS_IP,
@@ -288,4 +316,32 @@ class ONOSEnv():
         print(bps_to_human_string(load))
         return
 
+    # reset env network loads
+    def reset(self):
+        self.update_network_load()
+        return self.env_loads()
 
+    # route_args =[srcip0，srcip1，srcip2，srcip3，srcprefix,desip0，desip1，desip2，desip3,dstprefix，sport，dport，protocol，currentPositionIndex]
+    def set_up_route_args(self):
+        self.initial_route_args = []
+        # refer to utils.py criteria_type_key_to_self_key
+        src_cidr = self.tracked_intent['IP_SRC'].split('/')
+        src_ip_address = src_cidr[0]
+        src_ip_prefix = src_cidr[1]
+        self.initial_route_args = src_ip_address.split('.')
+        self.initial_route_args.append(src_ip_prefix)
+        dst_cidr = self.tracked_intent['IP_DST'].split('/')
+        dst_ip_address = dst_cidr[0]
+        dst_ip_prefix = dst_cidr[1]
+        self.initial_route_args = self.initial_route_args + dst_ip_address.split('.')
+        self.initial_route_args.append(dst_ip_prefix)
+        src_port = self.tracked_intent['PORT_SRC']
+        self.initial_route_args.append(src_port)
+        dst_port = self.tracked_intent['PORT_DST']
+        self.initial_route_args.append(dst_port)
+        protocol = self.tracked_intent['IP_PROTO']
+        self.initial_route_args.append(protocol)
+        current_position_index = self.deviceId_to_arrayIndex[self.tracked_intent['src_location']['elementId']]
+        self.initial_route_args.append(current_position_index)
+        self.initial_route_args = np.asarray(self.initial_route_args, dtype=int)
+        print("init route args")
