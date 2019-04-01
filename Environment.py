@@ -245,9 +245,7 @@ class ONOSEnv():
 
         result = json_post_req(('http://%s:%d/onos/v1/eimr/eimr/startMonitorIntent'
                                 % (ONOS_IP, ONOS_PORT)), json.dumps(msg))
-        if 'Failed' in json.dumps(result):
-            return False
-        return True
+        return 'Failed' not in json.dumps(result)
 
     # the key of intent is src_host_mac-dst_host_mac
     def update_src_dst_locations(self):
@@ -345,3 +343,8 @@ class ONOSEnv():
         self.initial_route_args.append(current_position_index)
         self.initial_route_args = np.asarray(self.initial_route_args, dtype=int)
         print("init route args")
+
+    # valid it by wires
+    def is_dst_neighbor(self, src_index):
+        dst_index = self.deviceId_to_arrayIndex[self.tracked_intent['dst_location']['elementId']]
+        return self.env_wires[src_index][dst_index] != -1
