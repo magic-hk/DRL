@@ -4,6 +4,8 @@ import networkx as nx
 import os
 import json
 import random
+import time
+import matplotlib.pyplot as plt
 from config import *
 from utils import bps_to_human_string,url_quote,json_post_req,criteria_type_key_to_self_key, criteria_type_key_to_value_key, json_get_req, pretty, softmax
 
@@ -42,28 +44,29 @@ class ONOSEnv():
         self.tracked_intent = {}
         self.initial_route_args = []
         self.set_up()
+        self.monitor_load_bool = True
+        self.monitor_load()
 
     def set_up(self):
         self.update_device()
         if len(self.devices) == 0:
-            print("Set up devices Error!")
-            return
+            raise Exception("Set up devices Error!")
 
         self.update_links()
         if len(self.env_loads) == 0:
-            print("Set up links Error!")
-            return
+            raise Exception("Set up links Error!")
 
         self.update_host()
         if len(self.hosts) == 0:
-            print("Set up hosts Error!")
-            return
+            raise Exception("Set up hosts Error!")
 
         self.node_embedding()
+        if len(self.node_embeddinged) == 0:
+            raise Exception("Embedding Error!")
 
         self.chose_intent()
         if len(self.tracked_intent.keys()) == 0:
-            print("Set up intent Error!")
+            raise Exception("Set up intent Error!")
             return
         self.set_up_route_args()
 
@@ -312,7 +315,7 @@ class ONOSEnv():
         load = reply['load']
 
         print(bps_to_human_string(load))
-        return
+        return load
 
     # reset env network loads
     def reset(self):
@@ -348,3 +351,19 @@ class ONOSEnv():
     def is_dst_neighbor(self, src_index):
         dst_index = self.deviceId_to_arrayIndex[self.tracked_intent['dst_location']['elementId']]
         return self.env_wires[src_index][dst_index] != -1
+
+    def monitor_load(self):
+        count = 0
+        fig, ax = plt.subplots()
+        ax.set_ylim(0, DEFAULT_ACCESS_CAPACITY/1024)
+        xs = []
+        ys = []
+        while self.monitor_load_bool:
+            time.sleep(2)
+            load = self.update_intent_load()
+            ys.append(load/1024)
+            xs.append(count * 3)
+            count += 1
+            plt.plot(xs, ys)
+            plt.pause(0.1)
+
