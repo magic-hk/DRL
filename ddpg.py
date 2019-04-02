@@ -140,11 +140,11 @@ class DDPG(object):
                 action = ddpg.choose_action(s)
 
                 # 比较点action和 neighborNode节点的距离，以及neighborNode和目的节点的距离，需要折中，返回一个节点
-                origin_express = env.compareNode(action, neighbor_nodes)  # compareNode函数返回具体的节点编号
+                origin_express = env.compare_node(action, neighbor_nodes)  # compareNode函数返回具体的节点编号
 
             else:
                 # choose random action
-                origin_express = random.sample(neighbor_nodes,1)  # 从currentPosition的邻居节点 随机选择一个
+                origin_express = random.sample(neighbor_nodes, 1)  # 从currentPosition的邻居节点 随机选择一个
 
 
         # 如果选择的点有环路，则环境会返回来一个reward，reward的值，应该很小，表示不想出现环路
