@@ -70,7 +70,13 @@ class ONOSEnv():
             return
         self.set_up_route_args()
 
-    def step(self):
+    def step(self, path):
+        reroute_msg = {'routingList': []}
+        reroute_msg['routingList'].append(
+            {'key': self.tracked_intent['key'], 'appId': {'name': self.tracked_intent['app_name']},
+             'paths': [{'path': path, 'weight': 1.0}]}
+        )
+        json_post_req(('http://%s:%d/onos/v1/eimr/eimr/reRouteIntents' % (ONOS_IP, ONOS_PORT)), json.dumps(reroute_msg))
         self.update_network_load()
         s_ = self.env_loads
         r = 0
@@ -79,8 +85,16 @@ class ONOSEnv():
     # action = an array REPESENTATTION_SIZE
     # neighbor_nodes neighbor index
     def compare_node(self, action, neighbor_nodes):
-        return neighbor_nodes[1]
-
+        min_distance = 1
+        index = 0
+        action_vector = np.mat(action)
+        for i in len(neighbor_nodes):
+            embedding_vector = np.mat(self.node_embeddinged[neighbor_nodes[i]])
+            distance = np.sqrt((action_vector-embedding_vector)*(action_vector-embedding_vector).T)
+            if distance < min_distance:
+                index = i
+                min_distance = distance
+        return neighbor_nodes[index]
 
     def node_embedding(self):
         self.node_embeddinged = np.full([self.active_nodes, REPESENTATTION_SIZE], 0.0, dtype=float)
@@ -229,9 +243,10 @@ class ONOSEnv():
                 continue
 
             # org.onosproject.eifwd
-            self.tracked_intent['appId'] = intent['appId']
+            self.tracked_intent['app_name'] = intent['appId']
             # 56:60:C7:C8:CD:7B/None-72:06:C3:73:5C:A5/None
             self.tracked_intent['key'] = intent['key']
+            # replace : and / whith url unicode
             self.tracked_intent['url_key'] = url_quote(intent['key'])
 
             # get host locations
@@ -255,7 +270,7 @@ class ONOSEnv():
     # need myself application eimr
     def monitor_intent(self):
         msg = dict()
-        msg['name'] = self.tracked_intent['appId']
+        msg['name'] = self.tracked_intent['app_name']
         msg['intentKey'] = self.tracked_intent['key']
 
         result = json_post_req(('http://%s:%d/onos/v1/eimr/eimr/startMonitorIntent'
@@ -300,7 +315,7 @@ class ONOSEnv():
         req_str = 'http://%s:%d/onos/v1/intents/relatedflows/%s/%s' \
                   % (ONOS_IP,
                      ONOS_PORT,
-                     self.tracked_intent['appId'],
+                     self.tracked_intent['app_name'],
                      self.tracked_intent['url_key'])
         reply = json_get_req(req_str)
         if len(reply['paths']) == 0:
@@ -323,7 +338,7 @@ class ONOSEnv():
         req_str = 'http://%s:%d/onos/v1/eimr/eimr/intentLoad/%s/%s' \
                    % (ONOS_IP,
                       ONOS_PORT,
-                      self.tracked_intent['appId'],
+                      self.tracked_intent['app_name'],
                       self.tracked_intent['url_key'])
         reply = json_get_req(req_str)
         if 'load' not in reply:
