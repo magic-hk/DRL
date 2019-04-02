@@ -88,7 +88,7 @@ class ONOSEnv():
         min_distance = 1
         index = 0
         action_vector = np.mat(action)
-        for i in len(neighbor_nodes):
+        for i in range(len(neighbor_nodes)):
             embedding_vector = np.mat(self.node_embeddinged[neighbor_nodes[i]])
             distance = np.sqrt((action_vector-embedding_vector)*(action_vector-embedding_vector).T)
             if distance < min_distance:
@@ -386,7 +386,7 @@ class ONOSEnv():
     def get_node_neighbors(self, node_index):
         pending_nodes = self.env_wires[node_index]
         neighbor = []
-        for i in len(pending_nodes):
+        for i in range(len(pending_nodes)):
             if pending_nodes[i] != -1:
                 neighbor.append(i)
         return neighbor
