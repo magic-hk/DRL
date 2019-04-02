@@ -45,7 +45,7 @@ class ONOSEnv():
         self.initial_route_args = []
         self.set_up()
         self.monitor_load_bool = True
-        self.monitor_load()
+        #  self.monitor_load()
 
     def set_up(self):
         self.update_device()
@@ -69,6 +69,18 @@ class ONOSEnv():
             raise Exception("Set up intent Error!")
             return
         self.set_up_route_args()
+
+    def step(self):
+        self.update_network_load()
+        s_ = self.env_loads
+        r = 0
+        return s_, r
+
+    # action = an array REPESENTATTION_SIZE
+    # neighbor_nodes neighbor index
+    def compare_node(self, action, neighbor_nodes):
+        return neighbor_nodes[1]
+
 
     def node_embedding(self):
         self.node_embeddinged = np.full([self.active_nodes, REPESENTATTION_SIZE], 0.0, dtype=float)
@@ -274,10 +286,14 @@ class ONOSEnv():
     # location= {elementId,port} elementId==host connect deviceId,
     # embeding info = node_embeddinged[deviceId_to_arrayIndex[location['elementId']]]
     def update_src_dst_location(self):
-        src_index = random.randint(0, len(self.tracked_intent['src_locations']) - 1)
-        dst_index = random.randint(0, len(self.tracked_intent['dst_locations']) - 1)
-        self.tracked_intent['src_location'] = self.tracked_intent['src_locations'][src_index]
-        self.tracked_intent['dst_location'] = self.tracked_intent['dst_locations'][dst_index]
+        src_random_index = random.randint(0, len(self.tracked_intent['src_locations']) - 1)
+        dst_random_index = random.randint(0, len(self.tracked_intent['dst_locations']) - 1)
+        # true src_location{elementId,port}
+        self.tracked_intent['src_location'] = self.tracked_intent['src_locations'][src_random_index]
+        self.tracked_intent['dst_location'] = self.tracked_intent['dst_locations'][dst_random_index]
+        # array index
+        self.tracked_intent['src_index'] = self.deviceId_to_arrayIndex[self.tracked_intent['src_location']['elementId']]
+        self.tracked_intent['dst_index'] = self.deviceId_to_arrayIndex[self.tracked_intent['dst_location']['elementId']]
 
     # update intent information includes ip,port,protocol,flowid,deviceid
     def update_tracked_intent(self):
@@ -342,15 +358,27 @@ class ONOSEnv():
         self.initial_route_args.append(dst_port)
         protocol = self.tracked_intent['IP_PROTO']
         self.initial_route_args.append(protocol)
-        current_position_index = self.deviceId_to_arrayIndex[self.tracked_intent['src_location']['elementId']]
+        current_position_index = self.tracked_intent['src_index']
         self.initial_route_args.append(current_position_index)
         self.initial_route_args = np.asarray(self.initial_route_args, dtype=int)
         print("init route args")
 
     # valid it by wires
     def is_dst_neighbor(self, src_index):
-        dst_index = self.deviceId_to_arrayIndex[self.tracked_intent['dst_location']['elementId']]
+        dst_index = self.tracked_intent['dst_index']
         return self.env_wires[src_index][dst_index] != -1
+
+    def get_node_neighbors(self, node_index):
+        pending_nodes = self.env_wires[node_index]
+        neighbor = []
+        for i in len(pending_nodes):
+            if pending_nodes[i] != -1:
+                neighbor.append(i)
+        return neighbor
+
+    def get_network_state(self):
+        self.update_network_load()
+        return self.env_loads()
 
     def monitor_load(self):
         count = 0
