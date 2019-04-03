@@ -121,14 +121,14 @@ class DDPG(object):
     def get_path(self, env, route_args, epsilon=0.1):
         # 存储最后的路径列表
         path = []
-        s = env.get_network_state()
+        # origin_express array index
         origin_express = route_args[-1]
         # 添加第一个节点
         path.append(origin_express)
         # 最多产生 MAX_EP_STEPS 个节点的路径
-        for j in range(MAX_EP_STEPS):
+        for j in range(MAX_PATH_STEPS):
             current_position = origin_express
-            # currentPosition 的邻居节点，这个列表是节点的编号
+            # currentPosition 的邻居节点，这个列表是节点的编号(array index)
             neighbor_nodes = env.get_node_neighbors(current_position)
 
             # if current_position is neighbor of dst
@@ -137,7 +137,7 @@ class DDPG(object):
 
             if np.random.rand() > epsilon:  # add randomness to action selection for exploration
                 # choose best action
-                action = ddpg.choose_action(s)
+                action = ddpg.choose_action(route_args)
 
                 # 比较点action和 neighborNode节点的距离，以及neighborNode和目的节点的距离，需要折中，返回一个节点
                 origin_express = env.compare_node(action, neighbor_nodes)  # compareNode函数返回具体的节点编号
@@ -146,6 +146,10 @@ class DDPG(object):
                 # choose random action
                 origin_express = random.sample(neighbor_nodes, 1)  # 从currentPosition的邻居节点 随机选择一个
 
+            # change route_args current_position->origin_express embedding
+            route_args = update()
+            path.append(origin_express)
+        return path
 
         # 如果选择的点有环路，则环境会返回来一个reward，reward的值，应该很小，表示不想出现环路
         # 2：如果即将加入的originExpress的所有邻居，已经都在path中，则需要在path中删除后三个，重新设置 originExpress
@@ -156,16 +160,19 @@ setup_exp()
 folder = setup_run()
 env = ONOSEnv(folder)
 #  training  #
+
 s_dim = len(env.initial_route_args) -1 + REPESENTATTION_SIZE
 a_dim = REPESENTATTION_SIZE
 a_bound = 1
-MAX_EP_STEPS = env.active_nodes
+MAX_PATH_STEPS = env.active_nodes
+MAX_EP_STEPS = 10000
 ddpg = DDPG(a_dim, s_dim, a_bound)
 # ddpg.train(routeTuple) # 路径元祖，是一个list：【（vector1，vector2）（vector1，vector2）】，vector是Embedding之后的表示
 
 t1 = time.time()
 for i in range(MAX_EPISODES):
     ep_reward = 0
+    # 流量矩阵
     s = env.reset()  # 环境初始化
     route_args = env.initial_route_args
     for j in range(MAX_EP_STEPS):
@@ -178,6 +185,7 @@ for i in range(MAX_EPISODES):
 
         # ===选择完了动作之后在环境中执行动作===
 
+        # when path can not find r =-1, s_ is now load
         s_, r = env.step(path)  # 在环境中执行动作，获取吞吐量信息，s_是执行这个动作之后，网络的状态，可以用流量矩阵，压缩成一个多维数组
 
         ddpg.store_transition(s, path, r, s_)  # 存储每一步所选择的动作，也就是路径中点的表示
