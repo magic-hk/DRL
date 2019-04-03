@@ -37,6 +37,7 @@ class ONOSEnv():
         self.node_embeddinged = []
         self.devices = []
         self.deviceId_to_arrayIndex = {}
+        self.arrayIndex_to_deviceId = {}
         self.env_ports = []
         self.env_loads = []
         self.env_wires = []
@@ -70,7 +71,8 @@ class ONOSEnv():
             return
         self.set_up_route_args()
 
-    def step(self, path):
+    def step(self, indexs_path):
+        path = map(lambda x: self.arrayIndex_to_deviceId[x], indexs_path)
         reroute_msg = {'routingList': []}
         reroute_msg['routingList'].append(
             {'key': self.tracked_intent['key'], 'appId': {'name': self.tracked_intent['app_name']},
@@ -206,6 +208,7 @@ class ONOSEnv():
         for dev in reply['devices']:
             # id is 'of:00000000000000a1',..., arrayIndex is 0,......
             self.deviceId_to_arrayIndex[dev['id']] = self.active_nodes
+            self.arrayIndex_to_deviceId[self.active_nodes] = dev['id']
             self.G.add_node(dev['id'], type='device')
             self.devices.append(dev['id'])
             self.active_nodes += 1
