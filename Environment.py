@@ -71,8 +71,34 @@ class ONOSEnv():
             return
         self.set_up_route_args()
 
+    def validate_path(self, indexs_path):
+        if indexs_path[0] != self.tracked_intent['src_index'] \
+                or indexs_path[-1] != self.tracked_intent['dst_index']:
+            return False
+        visited = {}
+        for i in indexs_path:
+            if visited.get(i) is None:
+                visited[i] = i
+            else:
+                return False
+        return True
+
+
     def step(self, indexs_path):
-        path = map(lambda x: self.arrayIndex_to_deviceId[x], indexs_path)
+        if not self.validate_path(indexs_path):
+            return self.env_loads, -1
+        path = []
+        # add src host mac
+        path.append(self.tracked_intent['src_host'])
+
+        # add switch
+        for i in range(len(indexs_path)):
+            index = self.arrayIndex_to_deviceId[indexs_path[i]]
+            path.append(index)
+
+        # add dst host mac
+        path.append(self.tracked_intent['dst_host'])
+
         reroute_msg = {'routingList': []}
         reroute_msg['routingList'].append(
             {'key': self.tracked_intent['key'], 'appId': {'name': self.tracked_intent['app_name']},
@@ -298,6 +324,8 @@ class ONOSEnv():
             return
         self.tracked_intent['src_locations'] = src_locations
         self.tracked_intent['dst_locations'] = dst_locations
+        self.tracked_intent['src_host'] = src_mac
+        self.tracked_intent['dst_host'] = dst_mac
         return
 
     # radom chose one location of locations as src_location and dst_location
@@ -354,7 +382,7 @@ class ONOSEnv():
     # reset env network loads
     def reset(self):
         self.update_network_load()
-        return self.env_loads()
+        return self.env_loads
 
     # route_args =[srcip0，srcip1，srcip2，srcip3，srcprefix,desip0，desip1，desip2，desip3,dstprefix，sport，dport，protocol，currentPositionIndex]
     def set_up_route_args(self):
@@ -381,16 +409,20 @@ class ONOSEnv():
         self.initial_route_args = np.asarray(self.initial_route_args, dtype=int)
         print("init route args")
 
+    def get_embeddinged_route_args(self, embedding_index):
+        node_embedding = self.node_embeddinged[embedding_index]
+        part_one = self.initial_route_args[0:-1]
+        return np.append(part_one, node_embedding)
+
     # valid it by wires
     def is_dst_neighbor(self, src_index):
         dst_index = self.tracked_intent['dst_index']
         return self.env_wires[src_index][dst_index] != -1
 
     def get_node_neighbors(self, node_index):
-        pending_nodes = self.env_wires[node_index]
         neighbor = []
-        for i in range(len(pending_nodes)):
-            if pending_nodes[i] != -1:
+        for i in range(self.active_nodes):
+            if self.env_wires[node_index][i] != -1:
                 neighbor.append(i)
         return neighbor
 
