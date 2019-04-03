@@ -118,13 +118,19 @@ class DDPG(object):
 
     # epsilon : control exploration
     # s为一个状态，也即将routeArgs中的 currentPosition变为节点embedding的表示，同时需要考虑 networkState
-    def get_path(self, env, route_args, epsilon=0.1):
+    def get_path(self, env, epsilon=0.1):
         # 存储最后的路径列表
         path = []
+
         # origin_express array index
-        origin_express = route_args[-1]
+        origin_express = env.initial_route_args[-1]
+
+        # embedding
+        embeddinged_route_args = env.get_embeddinged_route_args(origin_express)
+
         # 添加第一个节点
         path.append(origin_express)
+
         # 最多产生 MAX_EP_STEPS 个节点的路径
         for j in range(MAX_PATH_STEPS):
             current_position = origin_express
@@ -137,18 +143,20 @@ class DDPG(object):
 
             if np.random.rand() > epsilon:  # add randomness to action selection for exploration
                 # choose best action
-                action = ddpg.choose_action(route_args)
+                action = ddpg.choose_action(embeddinged_route_args)
 
                 # 比较点action和 neighborNode节点的距离，以及neighborNode和目的节点的距离，需要折中，返回一个节点
                 origin_express = env.compare_node(action, neighbor_nodes)  # compareNode函数返回具体的节点编号
 
             else:
                 # choose random action
-                origin_express = random.sample(neighbor_nodes, 1)  # 从currentPosition的邻居节点 随机选择一个
+                if len(neighbor_nodes) > 1:
+                    origin_express = random.sample(neighbor_nodes, 1)[0]  # 从currentPosition的邻居节点 随机选择一个
 
             # change route_args current_position->origin_express embedding
-            route_args = update()
+            embeddinged_route_args = env.get_embeddinged_route_args(origin_express)
             path.append(origin_express)
+
         return path
 
         # 如果选择的点有环路，则环境会返回来一个reward，reward的值，应该很小，表示不想出现环路
@@ -165,7 +173,7 @@ s_dim = len(env.initial_route_args) -1 + REPESENTATTION_SIZE
 a_dim = REPESENTATTION_SIZE
 a_bound = 1
 MAX_PATH_STEPS = env.active_nodes
-MAX_EP_STEPS = 10000
+MAX_EP_STEPS = 1000
 ddpg = DDPG(a_dim, s_dim, a_bound)
 # ddpg.train(routeTuple) # 路径元祖，是一个list：【（vector1，vector2）（vector1，vector2）】，vector是Embedding之后的表示
 
@@ -174,17 +182,10 @@ for i in range(MAX_EPISODES):
     ep_reward = 0
     # 流量矩阵
     s = env.reset()  # 环境初始化
-    route_args = env.initial_route_args
     for j in range(MAX_EP_STEPS):
-        path = ddpg.getpath(env, route_args)
-        # routeArgs is a list：【srcip0，srcip1，srcip2，srcip3，desip0，desip1，desip2，desip3，sport，dport，protocol，currentPosition】
-        # currentPosition 是还没有embedding的节点编号
-        # network 是一个网络
-        # networkEmbedding 是一个网络Embedding之后的表示
-        # path 返回值，也是一个list，是一个节点的列表
+        path = ddpg.get_path(env)
 
         # ===选择完了动作之后在环境中执行动作===
-
         # when path can not find r =-1, s_ is now load
         s_, r = env.step(path)  # 在环境中执行动作，获取吞吐量信息，s_是执行这个动作之后，网络的状态，可以用流量矩阵，压缩成一个多维数组
 
