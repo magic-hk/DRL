@@ -394,10 +394,6 @@ class ONOSEnv():
                 neighbor.append(i)
         return neighbor
 
-    def get_network_state(self):
-        self.update_network_load()
-        return self.env_loads()
-
     def monitor_load(self):
         count = 0
         fig, ax = plt.subplots()
