@@ -127,6 +127,7 @@ class DDPG(object):
 
         # embedding
         embeddinged_route_args = env.get_embeddinged_route_args(origin_express)
+        # s = embedding + traffic
 
         # 添加第一个节点
         path.append(origin_express)
@@ -143,6 +144,7 @@ class DDPG(object):
 
             if np.random.rand() > epsilon:  # add randomness to action selection for exploration
                 # choose best action
+                # here replace with s
                 action = ddpg.choose_action(embeddinged_route_args)
 
                 # 比较点action和 neighborNode节点的距离，以及neighborNode和目的节点的距离，需要折中，返回一个节点
