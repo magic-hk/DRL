@@ -47,6 +47,8 @@ class ONOSEnv():
         self.set_up()
         self.monitor_load_bool = True
         #  self.monitor_load()
+        self.now_s = []
+        self.now_traffic = []
 
     def set_up(self):
         self.update_device()
@@ -86,7 +88,7 @@ class ONOSEnv():
 
     def step(self, indexs_path):
         if not self.validate_path(indexs_path):
-            return self.env_loads, -1
+            return self.now_s, -1
         path = []
         # add src host mac
         path.append(self.tracked_intent['src_host'])
@@ -381,8 +383,22 @@ class ONOSEnv():
 
     # reset env network loads
     def reset(self):
+        # get the src node index
+        src_idex = self.initial_route_args[-1]
+
+        # embeddinged route args
+        embeddinged_route_args = self.get_embeddinged_route_args(src_idex)
+
+        # update network load
         self.update_network_load()
-        return self.env_loads
+
+        # flattened traffic
+        now_traffic = self.env_loads.flatten()
+
+        # s = embedding_route_args + traffic
+        now_mix_s = np.append(embeddinged_route_args, now_traffic)
+        self.now_s = now_mix_s
+        self.now_traffic = now_traffic
 
     # route_args =[srcip0，srcip1，srcip2，srcip3，srcprefix,desip0，desip1，desip2，desip3,dstprefix，sport，dport，protocol，currentPositionIndex]
     def set_up_route_args(self):
