@@ -125,9 +125,8 @@ class DDPG(object):
         # origin_express array index
         origin_express = env.initial_route_args[-1]
 
-        # embedding
-        embeddinged_route_args = env.get_embeddinged_route_args(origin_express)
-        # s = embedding + traffic
+        step_mix_s = env.now_s
+        now_traffic = env.now_traffic
 
         # 添加第一个节点
         path.append(origin_express)
@@ -145,7 +144,7 @@ class DDPG(object):
             if np.random.rand() > epsilon:  # add randomness to action selection for exploration
                 # choose best action
                 # here replace with s
-                action = ddpg.choose_action(embeddinged_route_args)
+                action = ddpg.choose_action(step_mix_s)
 
                 # 比较点action和 neighborNode节点的距离，以及neighborNode和目的节点的距离，需要折中，返回一个节点
                 origin_express = env.compare_node(action, neighbor_nodes)  # compareNode函数返回具体的节点编号
@@ -157,6 +156,9 @@ class DDPG(object):
 
             # change route_args current_position->origin_express embedding
             embeddinged_route_args = env.get_embeddinged_route_args(origin_express)
+
+            step_mix_s = np.append(embeddinged_route_args, now_traffic)
+
             path.append(origin_express)
 
         return path
@@ -171,7 +173,7 @@ folder = setup_run()
 env = ONOSEnv(folder)
 #  training  #
 
-s_dim = len(env.initial_route_args) -1 + REPESENTATTION_SIZE
+s_dim = len(env.initial_route_args) -1 + REPESENTATTION_SIZE + len(env.env_loads.flatten())
 a_dim = REPESENTATTION_SIZE
 a_bound = 1
 MAX_PATH_STEPS = env.active_nodes
@@ -183,8 +185,11 @@ t1 = time.time()
 for i in range(MAX_EPISODES):
     ep_reward = 0
     # 流量矩阵
-    s = env.reset()  # 环境初始化
+    # s = env.reset()  # 环境初始化
     for j in range(MAX_EP_STEPS):
+        # reset to get load traffic and s = embeddinged_route_args + traffic
+        env.reset()
+        s = env.now_s
         path = ddpg.get_path(env)
 
         # ===选择完了动作之后在环境中执行动作===
