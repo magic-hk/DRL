@@ -196,7 +196,8 @@ for i in range(MAX_EPISODES):
         # when path can not find r =-1, s_ is now load
         s_, r = env.step(path)  # 在环境中执行动作，获取吞吐量信息，s_是执行这个动作之后，网络的状态，可以用流量矩阵，压缩成一个多维数组
 
-        ddpg.store_transition(s, path, r, s_)  # 存储每一步所选择的动作，也就是路径中点的表示
+        for element in path:
+            ddpg.store_transition(s, env.node_embeddinged[element], r, s_)  # 存储每一步所选择的动作，也就是路径中点的表示
 
         if ddpg.pointer > MEMORY_CAPACITY:
             # var *= .9995    # decay the action randomness
