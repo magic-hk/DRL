@@ -196,7 +196,7 @@ class ONOSEnv():
             dst_index = self.deviceId_to_arrayIndex[dst]
             load = link['load']
             self.env_loads[src_index][dst_index] = load
-        print("network load update successfully")
+        # print("network load update successfully")
 
     # need myself onos apps traffic-tracker
     def update_links(self):
