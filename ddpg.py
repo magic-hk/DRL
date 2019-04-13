@@ -131,6 +131,10 @@ class DDPG(object):
         # 添加第一个节点
         path.append(origin_express)
 
+        # use for avoid repeat node
+        visited = dict()
+        visited[origin_express] = origin_express
+
         # 最多产生 MAX_EP_STEPS 个节点的路径
         for j in range(MAX_PATH_STEPS):
             current_position = origin_express
@@ -140,6 +144,7 @@ class DDPG(object):
             # if current_position is neighbor of dst
             if env.is_dst_neighbor(current_position):
                 path.append(env.tracked_intent['dst_index'])
+                return path
 
             if np.random.rand() > epsilon:  # add randomness to action selection for exploration
                 # choose best action
@@ -154,12 +159,18 @@ class DDPG(object):
                 if len(neighbor_nodes) > 1:
                     origin_express = random.sample(neighbor_nodes, 1)[0]  # 从currentPosition的邻居节点 随机选择一个
 
+            path.append(origin_express)
+
+            # repeat point return path
+            if visited.get(origin_express) is not None:
+                return path
+            else:
+                visited[origin_express] = origin_express
+
             # change route_args current_position->origin_express embedding
             embeddinged_route_args = env.get_embeddinged_route_args(origin_express)
 
             step_mix_s = np.append(embeddinged_route_args, now_traffic)
-
-            path.append(origin_express)
 
         return path
 
@@ -196,8 +207,11 @@ for i in range(MAX_EPISODES):
         # when path can not find r =-1, s_ is now load
         s_, r = env.step(path)  # 在环境中执行动作，获取吞吐量信息，s_是执行这个动作之后，网络的状态，可以用流量矩阵，压缩成一个多维数组
 
-        for element in path:
-            ddpg.store_transition(s, env.node_embeddinged[element], r, s_)  # 存储每一步所选择的动作，也就是路径中点的表示
+        if r > 0:
+            for element in path:
+                ddpg.store_transition(s, env.node_embeddinged[element], r, s_)  # 存储每一步所选择的动作，也就是路径中点的表示
+        else:# only punish last one
+            ddpg.store_transition(s, env.node_embeddinged[path[len(path)-1]], r, s_)
 
         if ddpg.pointer > MEMORY_CAPACITY:
             # var *= .9995    # decay the action randomness
