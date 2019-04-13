@@ -77,6 +77,7 @@ class ONOSEnv():
         if indexs_path[0] != self.tracked_intent['src_index'] \
                 or indexs_path[-1] != self.tracked_intent['dst_index']:
             return False
+        # it seem to  not be necessary if i add it int get path
         visited = {}
         for i in indexs_path:
             if visited.get(i) is None:
@@ -85,10 +86,11 @@ class ONOSEnv():
                 return False
         return True
 
-
     def step(self, indexs_path):
         if not self.validate_path(indexs_path):
-            return self.now_s, -1
+            return self.now_s, -1.0
+
+        r = 1.0
         path = []
         # add src host mac
         path.append(self.tracked_intent['src_host'])
@@ -106,10 +108,70 @@ class ONOSEnv():
             {'key': self.tracked_intent['key'], 'appId': {'name': self.tracked_intent['app_name']},
              'paths': [{'path': path, 'weight': 1.0}]}
         )
+        # here shuold add get now load, change to get last recently load in future
+        old_intent_load = self.update_intent_load()
         json_post_req(('http://%s:%d/onos/v1/eimr/eimr/reRouteIntents' % (ONOS_IP, ONOS_PORT)), json.dumps(reroute_msg))
+
+        # avoid run to long time
+        soldier = 0
+        devices = dict()
+        flag = False
+        while soldier < 10:
+            # every retry wait 100ms
+            time.sleep(0.1)
+            devices.clear()
+            req_str = 'http://%s:%d/onos/v1/eimr/eimr/intentStatsNew/%s/%s' \
+                      % (ONOS_IP,
+                         ONOS_PORT,
+                         self.tracked_intent['app_name'],
+                         self.tracked_intent['url_key'])
+            print(req_str)
+            reply = json_get_req(req_str)
+            # valid exits statistics
+            if 'statistics' not in reply or len(reply['statistics']) != 1:
+                soldier += 1
+                continue
+            # only one object
+            app_stat = reply['statistics'][0]
+            intent = app_stat['intents'][0]
+
+            # here have some problem
+            # if one flow is not added break and start next try
+            for stat in stats:
+                device = stat['deviceId']
+                if stat['state'] != 'ADDED' \
+                        or self.deviceId_to_arrayIndex.get(device) is None:
+                    break
+                # collect stats device id
+                else:
+                    devices[device] = device
+
+            # valid path node not in path
+            if len(devices) == len(indexs_path):
+                internalFlag = True
+                for index in indexs_path:
+                    pathDevice = self.arrayIndex_to_deviceId[index]
+                    # path node is not in the flow stats
+                    if devices.get(pathDevice) is None:
+                        internalFlag = False
+                        break
+                if internalFlag:
+                    flag = True
+                    break
+            soldier += 1
+
+        if flag:
+            new_intent_load = self.update_intent_load()
+            change = new_intent_load - old_intent_load
+            if old_intent_load > 0:
+                r += change/old_intent_load
+
         self.update_network_load()
-        s_ = self.env_loads
-        r = 0
+        embeddinged_route_args = self.get_embeddinged_route_args(indexs_path[-1])
+        # flattened traffic
+        now_traffic = self.env_loads.flatten()
+        # s = route_args + network state
+        s_ = np.append(embeddinged_route_args, now_traffic)
         return s_, r
 
     # action = an array REPESENTATTION_SIZE
