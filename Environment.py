@@ -116,16 +116,17 @@ class ONOSEnv():
         soldier = 0
         devices = dict()
         flag = False
-        while soldier < 10:
-            # every retry wait 100ms
-            time.sleep(0.1)
+        req_str = 'http://%s:%d/onos/v1/eimr/eimr/intentStatsNew/%s/%s' \
+                  % (ONOS_IP,
+                     ONOS_PORT,
+                     self.tracked_intent['app_name'],
+                     self.tracked_intent['url_key'])
+        # new path
+        # print(req_str)
+        while soldier < 5:
+            # every retry wait 2s
+            time.sleep(2)
             devices.clear()
-            req_str = 'http://%s:%d/onos/v1/eimr/eimr/intentStatsNew/%s/%s' \
-                      % (ONOS_IP,
-                         ONOS_PORT,
-                         self.tracked_intent['app_name'],
-                         self.tracked_intent['url_key'])
-            print(req_str)
             reply = json_get_req(req_str)
             # valid exits statistics
             if 'statistics' not in reply or len(reply['statistics']) != 1:
@@ -133,11 +134,11 @@ class ONOSEnv():
                 continue
             # only one object
             app_stat = reply['statistics'][0]
-            intent = app_stat['intents'][0]
-
+            intent_stat = app_stat['intents'][0]
+            (key, items), = intent_stat.items()
             # here have some problem
             # if one flow is not added break and start next try
-            for stat in stats:
+            for stat in items:
                 device = stat['deviceId']
                 if stat['state'] != 'ADDED' \
                         or self.deviceId_to_arrayIndex.get(device) is None:
@@ -161,6 +162,8 @@ class ONOSEnv():
             soldier += 1
 
         if flag:
+            # wait 60 second ,make flow stable
+            time.sleep(60)
             new_intent_load = self.update_intent_load()
             change = new_intent_load - old_intent_load
             if old_intent_load > 0:
@@ -430,17 +433,24 @@ class ONOSEnv():
 
     # update intent load
     def update_intent_load(self):
-        req_str = 'http://%s:%d/onos/v1/eimr/eimr/intentLoad/%s/%s' \
-                   % (ONOS_IP,
-                      ONOS_PORT,
-                      self.tracked_intent['app_name'],
-                      self.tracked_intent['url_key'])
-        reply = json_get_req(req_str)
-        if 'load' not in reply:
-            return
-        load = reply['load']
-
-        print(bps_to_human_string(load))
+        soilder = 0
+        load = 0
+        # avoid in refresh time (default 2 second to get port stats)
+        while soilder < 3:
+            req_str = 'http://%s:%d/onos/v1/eimr/eimr/intentLoad/%s/%s' \
+                       % (ONOS_IP,
+                          ONOS_PORT,
+                          self.tracked_intent['app_name'],
+                          self.tracked_intent['url_key'])
+            reply = json_get_req(req_str)
+            if 'load' not in reply:
+                return
+            load = reply['load']
+            print(bps_to_human_string(load))
+            if load != 0:
+                break
+            soilder += 1
+            time.sleep(3)
         return load
 
     # reset env network loads
