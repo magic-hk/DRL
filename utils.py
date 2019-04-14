@@ -40,7 +40,7 @@ def json_post_req(url, json_data):
         request.add_header('Content-Type', 'application/json')
         # json to bytes
         data = bytes(json_data, encoding='utf-8')
-        print(data)
+        # print(data)
         response = urllib.request.urlopen(request, data=data)
         return json.loads(response.read().decode("utf-8"))
     except IOError as e:
