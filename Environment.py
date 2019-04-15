@@ -110,13 +110,13 @@ class ONOSEnv():
         )
         # here shuold add get now load, change to get last recently load in future
         old_intent_load = self.update_intent_load()
-        json_post_req(('http://%s:%d/onos/v1/eimr/eimr/reRouteIntents' % (ONOS_IP, ONOS_PORT)), json.dumps(reroute_msg))
+        json_post_req(('http://%s:%d/onos/v1/imrx/imrx/reRouteIntents' % (ONOS_IP, ONOS_PORT)), json.dumps(reroute_msg))
 
         # avoid run to long time
         soldier = 0
         devices = dict()
         flag = False
-        req_str = 'http://%s:%d/onos/v1/eimr/eimr/intentStatsNew/%s/%s' \
+        req_str = 'http://%s:%d/onos/v1/imrx/imrx/intentStatsNew/%s/%s' \
                   % (ONOS_IP,
                      ONOS_PORT,
                      self.tracked_intent['app_name'],
@@ -363,13 +363,13 @@ class ONOSEnv():
         print("chose intent successfully")
         return
 
-    # need myself application eimr
+    # need myself application imrx
     def monitor_intent(self):
         msg = dict()
         msg['name'] = self.tracked_intent['app_name']
         msg['intentKey'] = self.tracked_intent['key']
 
-        result = json_post_req(('http://%s:%d/onos/v1/eimr/eimr/startMonitorIntent'
+        result = json_post_req(('http://%s:%d/onos/v1/imrx/imrx/startMonitorIntent'
                                 % (ONOS_IP, ONOS_PORT)), json.dumps(msg))
         return 'Failed' not in json.dumps(result)
 
@@ -437,20 +437,21 @@ class ONOSEnv():
         load = 0
         # avoid in refresh time (default 2 second to get port stats)
         while soilder < 3:
-            req_str = 'http://%s:%d/onos/v1/eimr/eimr/intentLoad/%s/%s' \
+            soilder += 1
+            if soilder != 1:
+                time.sleep(3)
+            req_str = 'http://%s:%d/onos/v1/imrx/imrx/intentLoad/%s/%s' \
                        % (ONOS_IP,
                           ONOS_PORT,
                           self.tracked_intent['app_name'],
                           self.tracked_intent['url_key'])
             reply = json_get_req(req_str)
             if 'load' not in reply:
-                return
+                continue
             load = reply['load']
             print(bps_to_human_string(load))
             if load != 0:
                 break
-            soilder += 1
-            time.sleep(3)
         return load
 
     # reset env network loads
